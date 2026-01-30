@@ -118,10 +118,8 @@ const ChannelItemUtils = WebpackModules.getMangled(",textFocused:", {
 	icon: WebpackModules.Filters.byStrings(",textFocused:"),
 });
 
-const RolePillModule = WebpackModules.getBySource("overflow-more-roles-");
-const RolePill = RolePillModule
-	? Object.values(RolePillModule).find((x) => x?.render)
-	: null;
+const RolePillModule=WebpackModules.getBySource("overflow-more-roles-")||{};
+const RolePill=RolePillModule?Object.values(RolePillModule).find((x)=>x?.render):null;
 
 const ChannelPermissionStore = WebpackModules.getByKeys(
 	"getChannelPermissions",
