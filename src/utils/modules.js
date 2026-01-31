@@ -1,286 +1,271 @@
 // @ts-check
-
 const Logger = {
-	isDebugging: false,
-	_log: (type, color, ...x) => {
-		const line = new Error().stack || "";
-		const lines = line.split("\n");
-		console[type](
-			`%c SHC %c ${type.toUpperCase()} %c`,
-			"background: #5968f0; color: white; font-weight: bold; border-radius: 5px;",
-			`background: ${color}; color: black; font-weight: bold; border-radius: 5px; margin-left: 5px;`,
-			"",
-			...x,
-			`\n\n${lines[3].substring(lines[3].indexOf("("), lines[3].lastIndexOf(")") + 1)}`,
-		);
-	},
-	info: (...x) => {
-		Logger._log("log", "#2f3781", ...x);
-	},
-	warn: (...x) => {
-		Logger._log("warn", "#f0b859", ...x);
-	},
-	err: (...x) => {
-		Logger._log("error", "#f05959", ...x);
-	},
-	debug: (...x) => {
-		if (!Logger.isDebugging) return;
-
-		Logger._log("debug", "#f05959", ...x);
-	},
+  isDebugging: false,
+  _log: (type, color, ...x) => {
+    const line = new Error().stack || "";
+    const lines = line.split("\n");
+    console[type](
+      `%c SHC %c ${type.toUpperCase()} %c`,
+      "background: #5968f0; color: white; font-weight: bold; border-radius: 5px;",
+      `background: ${color}; color: black; font-weight: bold; border-radius: 5px; margin-left: 5px;`,
+      "",
+      ...x,
+      `\n\n${lines[3].substring(lines[3].indexOf("("), lines[3].lastIndexOf(")") + 1)}`
+    );
+  },
+  info: (...x) => {
+    Logger._log("log", "#2f3781", ...x);
+  },
+  warn: (...x) => {
+    Logger._log("warn", "#f0b859", ...x);
+  },
+  err: (...x) => {
+    Logger._log("error", "#f05959", ...x);
+  },
+  debug: (...x) => {
+    if (!Logger.isDebugging) return;
+    Logger._log("debug", "#f05959", ...x);
+  },
 };
 
 let loaded_successfully_internal = true;
 
 const {
-	React,
-	ReactDOM,
-	ReactUtils: ReactTools,
-	DOM: DOMTools,
-	ContextMenu,
-	Utils: Utilities,
-	// Webpack: WebpackModules,
-	Components: { Tooltip, Text: TextElement },
+  React,
+  ReactDOM,
+  ReactUtils: ReactTools,
+  DOM: DOMTools,
+  ContextMenu,
+  Utils: Utilities,
+  // Webpack: WebpackModules,
+  Components: {
+    Tooltip,
+    Text: TextElement
+  },
 } = BdApi;
 
 // TODO: Add this to above when BdApi types are updated
 /**
- * @type {typeof BdApi.Webpack & { getBySource: (source: string | RegExp, ...filters: string[]) => any, getMangled: (module: string, filters: Record<string,  (...args: any[]) => boolean>) => any }}
+ * @type {typeof BdApi.Webpack & { getBySource: (source: string | RegExp, ...filters: string[]) => any, getMangled: (module: string, filters: Record<string, (...args: any[]) => boolean>) => any }}
  */
 // @ts-ignore
 const WebpackModules = BdApi.Webpack;
 
 const DiscordPermissions = WebpackModules.getModule((m) => m.ADD_REACTIONS, {
-	searchExports: true,
+  searchExports: true,
 });
+
 const ImageResolver = WebpackModules.getByKeys(
-	"getUserAvatarURL",
-	"getGuildIconURL",
+  "getUserAvatarURL",
+  "getGuildIconURL",
 );
+
 const UserStore = WebpackModules.getStore("UserStore");
 
 // DiscordModules
 const ChannelStore = WebpackModules.getStore("ChannelStore");
 const GuildStore = WebpackModules.getStore("GuildStore");
 const GuildRoleStore = WebpackModules.getStore("GuildRoleStore");
-
 const MessageActions = WebpackModules.getByKeys(
-	"jumpToMessage",
-	"_sendMessage",
-	"fetchMessages", // This gets patched
+  "jumpToMessage",
+  "_sendMessage",
+  "fetchMessages", // This gets patched
 );
 const GuildChannelStore = WebpackModules.getStore("GuildChannelStore");
 const GuildMemberStore = WebpackModules.getByKeys("getMember");
+
 const NavigationUtils = WebpackModules.getMangled(
-	"transitionTo - Transitioning to ",
-	{
-		transitionTo: WebpackModules.Filters.byStrings(
-			"transitionTo - Transitioning to ",
-		),
-	},
+  "transitionTo - Transitioning to ",
+  {
+    transitionTo: WebpackModules.Filters.byStrings(
+      "transitionTo - Transitioning to ",
+    ),
+  },
 );
 
 if (!NavigationUtils.transitionTo) {
-	loaded_successfully_internal = false;
-	Logger.err("Failed to load NavigationUtils", NavigationUtils);
+  loaded_successfully_internal = false;
+  Logger.err("Failed to load NavigationUtils", NavigationUtils);
 }
 
 const LocaleManager = WebpackModules.getByKeys("setLocale");
 
 const DiscordConstants = {};
-
 DiscordConstants.Permissions = DiscordPermissions;
-
 DiscordConstants.ChannelTypes = WebpackModules.getModule((x) => x.GUILD_VOICE, {
-	searchExports: true,
+  searchExports: true,
 });
-
 DiscordConstants.NOOP = () => {};
 
 if (
-	!DiscordConstants.Permissions ||
-	!DiscordConstants.ChannelTypes ||
-	!DiscordConstants.NOOP
+  !DiscordConstants.Permissions ||
+  !DiscordConstants.ChannelTypes ||
+  !DiscordConstants.NOOP
 ) {
-	loaded_successfully_internal = false;
-	Logger.err("Failed to load DiscordConstants", DiscordConstants);
+  loaded_successfully_internal = false;
+  Logger.err("Failed to load DiscordConstants", DiscordConstants);
 }
 
 const chat = WebpackModules.getByKeys("chat", "chatContent")?.chat;
-
 const Route = WebpackModules.getBySource(/.ImpressionTypes.PAGE,name:\w+,/);
-
-const ChannelItemRenderer = WebpackModules.getModule((m) =>
-	m.render?.toString().includes(".ALL_MESSAGES"),
-);
-
+const ChannelItemRenderer = WebpackModules.getModule((m) => m.render?.toString().includes(".ALL_MESSAGES"));
 const ChannelItemUtils = WebpackModules.getMangled(",textFocused:", {
-	icon: WebpackModules.Filters.byStrings(",textFocused:"),
+  icon: WebpackModules.Filters.byStrings(",textFocused:"),
 });
 
-const RolePillModule = WebpackModules.getBySource("overflow-more-roles-");
+const RolePillModule = WebpackModules.getBySource("overflow-more-roles-") || {};
 const RolePill = RolePillModule
-	? Object.values(RolePillModule).find((x) => x?.render)
-	: null;
+  ? Object.values(RolePillModule).find((x) => x?.render)
+  : null;
 
 const ChannelPermissionStore = WebpackModules.getByKeys(
-	"getChannelPermissions",
+  "getChannelPermissions",
 );
+
 if (!ChannelPermissionStore?.can) {
-	loaded_successfully_internal = false;
-	Logger.err("Failed to load ChannelPermissionStore", ChannelPermissionStore);
+  loaded_successfully_internal = false;
+  Logger.err("Failed to load ChannelPermissionStore", ChannelPermissionStore);
 }
 
 const fluxDispatcherHandlers = WebpackModules.getByKeys(
-	"dispatch",
-	"subscribe",
-	{ searchExports: true },
+  "dispatch",
+  "subscribe", {
+    searchExports: true,
+  },
 )?._actionHandlers._dependencyGraph;
 
-const PermissionStoreActionHandler =
-	fluxDispatcherHandlers?.nodes[
-		WebpackModules.getStore("PermissionStore")._dispatchToken
-	].actionHandler;
+const PermissionStoreActionHandler = fluxDispatcherHandlers?.nodes[
+  WebpackModules.getStore("PermissionStore")._dispatchToken
+].actionHandler;
 
-const ChannelListStoreActionHandler =
-	fluxDispatcherHandlers?.nodes[
-		WebpackModules.getStore("ChannelListStore")._dispatchToken
-	].actionHandler;
+const ChannelListStoreActionHandler = fluxDispatcherHandlers?.nodes[
+  WebpackModules.getStore("ChannelListStore")._dispatchToken
+].actionHandler;
 
 const container = WebpackModules.getByKeys(
-	"container",
-	"hubContainer",
+  "container",
+  "hubContainer",
 )?.container;
 
 const ChannelRecordBase = WebpackModules.getMangled("isManaged(){return null", {
-	ChannelRecordBase: WebpackModules.Filters.byStrings(
-		"isManaged(){return null",
-	),
+  ChannelRecordBase: WebpackModules.Filters.byStrings(
+    "isManaged(){return null",
+  ),
 })?.ChannelRecordBase;
 
 const ChannelListStore = WebpackModules.getStore("ChannelListStore");
-const DEFAULT_AVATARS =
-	WebpackModules.getByKeys("DEFAULT_AVATARS")?.DEFAULT_AVATARS;
-
-const { iconItem, actionIcon } = WebpackModules.getByKeys("iconItem") || {};
-
+const DEFAULT_AVATARS = WebpackModules.getByKeys("DEFAULT_AVATARS")?.DEFAULT_AVATARS;
+const {
+  iconItem,
+  actionIcon
+} = WebpackModules.getByKeys("iconItem") || {};
 const ReadStateStore = WebpackModules.getStore("ReadStateStore");
 const Voice = WebpackModules.getByKeys("getVoiceStateStats");
-
 const UserMentions = WebpackModules.getByKeys("handleUserContextMenu");
-
 const ChannelUtils = WebpackModules.getMangled(".SMALLER,className", {
-	renderTopic: WebpackModules.Filters.byStrings(".GROUP_DM:return null"),
+  renderTopic: WebpackModules.Filters.byStrings(".GROUP_DM:return null"),
 });
+
 if (!ChannelUtils?.renderTopic) {
-	loaded_successfully_internal = false;
-	Logger.err("Failed to load ChannelUtils", ChannelUtils);
+  loaded_successfully_internal = false;
+  Logger.err("Failed to load ChannelUtils", ChannelUtils);
 }
 
 const ProfileActions = WebpackModules.getMangled(
-	"setFlag: user cannot be undefined",
-	{
-		fetchProfile: WebpackModules.Filters.byStrings("USER_PROFILE_FETCH_START"),
-	},
+  "setFlag: user cannot be undefined", {
+    fetchProfile: WebpackModules.Filters.byStrings("USER_PROFILE_FETCH_START"),
+  },
 );
 
 if (!ProfileActions.fetchProfile) {
-	loaded_successfully_internal = false;
-	Logger.err("Failed to load ProfileActions", ProfileActions);
+  loaded_successfully_internal = false;
+  Logger.err("Failed to load ProfileActions", ProfileActions);
 }
 
 const PermissionUtils = WebpackModules.getMangled(
-	".computeLurkerPermissionsAllowList()",
-	{
-		can: WebpackModules.Filters.byStrings("excludeGuildPermissions:"),
-	},
+  ".computeLurkerPermissionsAllowList()", {
+    can: WebpackModules.Filters.byStrings("excludeGuildPermissions:"),
+  },
 );
 
 const CategoryStore = WebpackModules.getByKeys(
-	"isCollapsed",
-	"getCollapsedCategories",
+  "isCollapsed",
+  "getCollapsedCategories",
 );
 
 const UsedModules = {
-	/* Library */
-	Utilities,
-	DOMTools,
-	Logger,
-	ReactTools,
-
-	/* Discord Modules (From lib) */
-	ChannelStore,
-	MessageActions,
-	React,
-	ReactDOM,
-	GuildChannelStore,
-	GuildMemberStore,
-	LocaleManager,
-	NavigationUtils,
-	ImageResolver,
-	UserStore,
-
-	ContextMenu,
-	Components: {
-		Tooltip,
-		TextElement,
-	},
-
-	/* Manually found modules */
-	GuildStore,
-	GuildRoleStore,
-	DiscordConstants,
-	chat,
-	Route,
-	ChannelItemRenderer,
-	ChannelItemUtils,
-	ChannelPermissionStore,
-	PermissionStoreActionHandler,
-	ChannelListStoreActionHandler,
-	container,
-	ChannelRecordBase,
-	ChannelListStore,
-	DEFAULT_AVATARS,
-	iconItem,
-	actionIcon,
-	ReadStateStore,
-	Voice,
-	RolePill,
-	UserMentions,
-	ChannelUtils,
-	ProfileActions,
-	PermissionUtils,
-	CategoryStore,
+  /* Library */
+  Utilities,
+  DOMTools,
+  Logger,
+  ReactTools,
+  /* Discord Modules (From lib) */
+  ChannelStore,
+  MessageActions,
+  React,
+  ReactDOM,
+  GuildChannelStore,
+  GuildMemberStore,
+  LocaleManager,
+  NavigationUtils,
+  ImageResolver,
+  UserStore,
+  ContextMenu,
+  Components: {
+    Tooltip,
+    TextElement,
+  },
+  /* Manually found modules */
+  GuildStore,
+  GuildRoleStore,
+  DiscordConstants,
+  chat,
+  Route,
+  ChannelItemRenderer,
+  ChannelItemUtils,
+  ChannelPermissionStore,
+  PermissionStoreActionHandler,
+  ChannelListStoreActionHandler,
+  container,
+  ChannelRecordBase,
+  ChannelListStore,
+  DEFAULT_AVATARS,
+  iconItem,
+  actionIcon,
+  ReadStateStore,
+  Voice,
+  RolePill,
+  UserMentions,
+  ChannelUtils,
+  ProfileActions,
+  PermissionUtils,
+  CategoryStore,
 };
 
 function checkVariables() {
-	for (const variable in UsedModules) {
-		if (!UsedModules[variable]) {
-			Logger.err(`Variable not found: ${variable}`);
-		}
-	}
-
-	for (const component in UsedModules.Components) {
-		if (!UsedModules.Components[component]) {
-			Logger.err(`Component not found: ${component}`);
-		}
-	}
-
-	if (!loaded_successfully_internal) {
-		Logger.err("Failed to load internal modules.");
-		return false;
-	}
-
-	if (
-		Object.values(UsedModules).includes(undefined) ||
-		Object.values(UsedModules.Components).includes(undefined)
-	) {
-		Logger.err("Some modules are undefined.");
-		return false;
-	}
-
-	Logger.info("All variables found.");
-	return true;
+  for (const variable in UsedModules) {
+    if (!UsedModules[variable]) {
+      Logger.err(`Variable not found: ${variable}`);
+    }
+  }
+  for (const component in UsedModules.Components) {
+    if (!UsedModules.Components[component]) {
+      Logger.err(`Component not found: ${component}`);
+    }
+  }
+  if (!loaded_successfully_internal) {
+    Logger.err("Failed to load internal modules.");
+    return false;
+  }
+  if (
+    Object.values(UsedModules).includes(undefined) ||
+    Object.values(UsedModules.Components).includes(undefined)
+  ) {
+    Logger.err("Some modules are undefined.");
+    return false;
+  }
+  Logger.info("All variables found.");
+  return true;
 }
 
 export const loaded_successfully = checkVariables();
